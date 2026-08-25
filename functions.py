@@ -34,3 +34,23 @@ def get_polymarket_event(slug, meeting_date):
         all_probs[outcome_name] = odf
 
     return event, all_probs
+
+
+def lead_lag_correlation(series_x, series_y, max_lag_minutes=30):
+    x = series_x.diff().dropna()
+    y = series_y.diff().dropna()
+
+    results = []
+    for lag in range(-max_lag_minutes, max_lag_minutes + 1):
+        y_shifted = y.shift(lag)
+        aligned = pd.concat([x, y_shifted], axis=1, join='inner').dropna()
+        aligned.columns = ['x', 'y']
+        corr = aligned['x'].corr(aligned['y'])
+        results.append({'lag': lag, 'correlation': corr, 'n_obs': len(aligned)})
+
+    lags_df = pd.DataFrame(results)
+    best_row = lags_df.loc[lags_df['correlation'].abs().idxmax()]
+    best_lag = int(best_row['lag'])
+    best_corr = best_row['correlation']
+
+    return lags_df, best_lag, best_corr

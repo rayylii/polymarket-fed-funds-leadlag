@@ -80,3 +80,21 @@ def bootstrap_significance(series_x, series_y, observed_corr, max_lag_minutes=30
             exceed_count += 1
 
     return exceed_count / n_bootstrap
+    
+
+def cusum(series, mu, sigma, k_multiplier=0.5, h_multiplier=4):
+    diffs = series.diff().dropna()
+    k = k_multiplier * sigma
+    h = h_multiplier * sigma
+
+    S_high = 0
+    S_low = 0
+    for t, d in diffs.items():
+        S_high = max(0, S_high + (d - mu) - k)
+        S_low = max(0, S_low + (mu - d) - k)
+
+        if S_high > h or S_low > h:
+            direction = 'up' if S_high > h else 'down'
+            return t, direction, S_high, S_low
+
+    return None, None, S_high, S_low

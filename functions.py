@@ -1,5 +1,6 @@
 import requests
 import pandas as pd
+import numpy as np
 import json
 import datetime
 import zoneinfo
@@ -45,6 +46,13 @@ def lead_lag_correlation(series_x, series_y, max_lag_minutes=30):
         y_shifted = y.shift(lag)
         aligned = pd.concat([x, y_shifted], axis=1, join='inner').dropna()
         aligned.columns = ['x', 'y']
+
+        if len(aligned) < 5:
+            continue
+
+        if aligned['x'].std() == 0 or aligned['y'].std() == 0:
+            continue
+            
         corr = aligned['x'].corr(aligned['y'])
         results.append({'lag': lag, 'correlation': corr, 'n_obs': len(aligned)})
 
@@ -54,3 +62,21 @@ def lead_lag_correlation(series_x, series_y, max_lag_minutes=30):
     best_corr = best_row['correlation']
 
     return lags_df, best_lag, best_corr
+
+
+def bootstrap_significance(series_x, series_y, observed_corr, max_lag_minutes=30, n_bootstrap=1000, seed=1):
+    rng = np.random.default_rng(seed=seed)
+
+    y_values = series_y.values.copy()
+
+    exceed_count = 0
+    for _ in range(n_bootstrap):
+        rng.shuffle(y_values)
+        y_shuffled = pd.Series(y_values, index=series_y.index)
+
+        _, _, shuf_corr = lead_lag_correlation(series_x, y_shuffled, max_lag_minutes=max_lag_minutes)
+
+        if abs(shuf_corr) >= abs(observed_corr):
+            exceed_count += 1
+
+    return exceed_count / n_bootstrap
